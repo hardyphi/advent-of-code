@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
-    "strconv"
 
 	utils "advent/utils"
 )
@@ -25,41 +25,19 @@ func main() {
 		if len(l) == 0 {
 			boards = append(boards, b)
 			b = [][]string{}
-            continue
+			continue
 		}
 		boxes := strings.Fields(l)
 		b = append(b, boxes)
 	}
-	set := NewSet()
-    
-    var winner int
-    var final int
-    game:
-	for _, num := range numbers {
-		set.Add(num)
-		for i, board := range boards {
-			if (checkHorizontal(board, set) || checkVertical(board, set)) {
-                final, _ = strconv.Atoi(num) 
-                winner = i
-                break game
-            }
-		}
-	}
-    
-    fmt.Printf("The winner is %v\n", winner)
-    winningBoard := boards[winner]
-    sum := 0
-    for _, row := range winningBoard {
-        for _, s := range row {
-            if !set.Has(s) {
-                num,_ := strconv.Atoi(s)
-                sum += num
-                fmt.Println(sum)
-            }
-        }
-    }
-    score := sum * final 
-    fmt.Printf("With a score of %v\n", score)
+
+	winner, winNum, winSet := winGame(boards, numbers)
+	winningScore := scoreOfBoard(boards[winner], winSet) * winNum
+	fmt.Printf("Winning Board is %v\nWith a score of %v\n", winner, winningScore)
+
+	loser, loseNum, loseSet := loseGame(boards, numbers)
+	losingScore := scoreOfBoard(loser, loseSet) * loseNum
+	fmt.Printf("The losing score is %v\n", losingScore)
 }
 
 type Set struct {
@@ -81,14 +59,54 @@ func (s *Set) Has(v string) bool {
 	return ok
 }
 
-func checkHorizontal(board [][]string, set *Set) bool {
-	for _, row := range board {
-		count := 0
-		for _, s := range row {
-			if set.Has(s) {
-				count++
+func winGame(boards [][][]string, numbers []string) (winner int, winNum int, winSet *Set) {
+	set := NewSet()
+	for _, num := range numbers {
+		set.Add(num)
+		for i, board := range boards {
+			if checkBoard(board, set) {
+				last, _ := strconv.Atoi(num)
+				return i, last, set
 			}
-			if count == len(board) {
+		}
+	}
+	return 0, 0, nil
+}
+
+func loseGame(boards [][][]string, numbers []string) (loser [][]string, loseNum int, loseSet *Set) {
+	b := make([][][]string, len(boards))
+	copy(b, boards)
+	set := NewSet()
+	for _, num := range numbers {
+		set.Add(num)
+		for i := 0; i < len(b); i++ {
+			if checkBoard(b[i], set) {
+                if len(b) == 1 {
+                    last,_ := strconv.Atoi(num)
+                    return b[0], last, set
+                }
+				b = removeBoard(b, i)
+				if i > 1 {
+					i--
+				}
+			}
+		}
+	}
+	return nil, 0, nil
+}
+
+func checkBoard(board [][]string, set *Set) bool {
+	for i := 0; i < len(board); i++ {
+		hCount := 0
+		vCount := 0
+		for j := 0; j < len(board); j++ {
+			if set.Has(board[i][j]) {
+				hCount++
+			}
+			if set.Has(board[j][i]) {
+				vCount++
+			}
+			if vCount == len(board) || hCount == len(board) {
 				return true
 			}
 		}
@@ -96,17 +114,19 @@ func checkHorizontal(board [][]string, set *Set) bool {
 	return false
 }
 
-func checkVertical(board [][]string, set *Set) bool {
-	for i := 0; i < len(board); i++ {
-		count := 0
-		for j := 0; j < len(board); j++ {
-			if set.Has(board[j][i]) {
-				count++
-			}
-			if count == len(board) {
-				return true
+func scoreOfBoard(board [][]string, set *Set) int {
+	sum := 0
+	for _, row := range board {
+		for _, s := range row {
+			if !set.Has(s) {
+				num, _ := strconv.Atoi(s)
+				sum += num
 			}
 		}
 	}
-	return false
+	return sum
+}
+
+func removeBoard(b [][][]string, i int) [][][]string {
+	return append(b[:i], b[i+1:]...)
 }
